@@ -1,0 +1,66 @@
+// !!! Обрати полігон
+
+// Функція для обчислення NDVI
+function calculateNDVI(image) {
+  return image.normalizedDifference(['B8', 'B4']).rename('NDVI');
+}
+
+// Функція для обчислення середнього NDVI по полігону за період з квітня по листопад
+function getMeanNDVIforPeriod(startDate, endDate, year) {
+  var collection = ee.ImageCollection('COPERNICUS/S2')
+    .filterBounds(geometry)
+    .filterDate(startDate, endDate)
+    .filterMetadata('CLOUDY_PIXEL_PERCENTAGE', 'less_than', 10);
+
+  // Усереднюємо колекцію для отримання одного зображення
+  var ndviImage = collection.map(calculateNDVI).mean();
+  
+  // Обчислюємо середнє значення NDVI по полігону
+  var meanNDVI = ndviImage.reduceRegion({
+    reducer: ee.Reducer.mean(),
+    geometry: geometry,
+    scale: 10,
+    maxPixels: 1e6
+  }).get('NDVI');
+  
+  return ee.Feature(null, {year: year, meanNDVI: meanNDVI});
+}
+
+// Дати для періоду квітень-листопад кожного року
+var startDate2020 = '2020-04-01';
+var endDate2020 = '2020-10-30';
+var startDate2021 = '2021-04-01';
+var endDate2021 = '2021-10-30';
+var startDate2022 = '2022-04-01';
+var endDate2022 = '2022-10-30';
+var startDate2023 = '2023-04-01';
+var endDate2023 = '2023-10-30';
+var startDate2024 = '2024-04-01';
+var endDate2024 = '2024-10-30';
+
+// Обчислюємо середній NDVI для періоду з квітня по листопад для кожного року
+var meanNDVI2020 = getMeanNDVIforPeriod(startDate2020, endDate2020, 2020);
+var meanNDVI2021 = getMeanNDVIforPeriod(startDate2021, endDate2021, 2021);
+var meanNDVI2022 = getMeanNDVIforPeriod(startDate2022, endDate2022, 2022);
+var meanNDVI2023 = getMeanNDVIforPeriod(startDate2023, endDate2023, 2023);
+var meanNDVI2024 = getMeanNDVIforPeriod(startDate2024, endDate2024, 2024);
+
+// Створюємо колекцію з результатів
+var meanNDVICollection = ee.FeatureCollection([meanNDVI2020,meanNDVI2021, meanNDVI2022, meanNDVI2023, meanNDVI2024]);
+
+// Побудова графіка середнього NDVI за три роки
+var chart = ui.Chart.feature.byFeature(meanNDVICollection, 'year', 'meanNDVI')
+    .setChartType('ColumnChart')  // Гістограма
+    .setOptions({
+      title: 'Mean NDVI (April - October) over Years',
+      hAxis: {title: 'Year'},
+      vAxis: {title: 'Mean NDVI'},
+      series: {0: {color: 'green'}}
+    });
+
+// Вивести графік у консолі
+print(chart);
+
+// Відображення мапи з вибраною областю
+Map.centerObject(geometry, 10);
+Map.addLayer(geometry, {color: 'red'}, 'Selected Area');
