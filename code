@@ -1,0 +1,92 @@
+// !!! Обрати полігон
+
+// Функція для обчислення NDVI
+function calculateNDVI(image) {
+  return image.normalizedDifference(['B8', 'B4']).rename('NDVI')
+              .copyProperties(image, ['system:time_start']);
+}
+
+// Завантаження супутникових даних Sentinel-2 за період з квітня по жовтень 2022 року
+var startDate = '2022-04-01';
+var endDate = '2022-10-31';
+
+var collection2022 = ee.ImageCollection('COPERNICUS/S2')
+    .filterBounds(geometry)
+    .filterDate(startDate, endDate)
+    .filterMetadata('CLOUDY_PIXEL_PERCENTAGE', 'less_than', 10)
+    .select(['B4', 'B8']);  // Вибір каналів, потрібних для NDVI
+
+// Обчислення середнього NDVI за період
+var ndvi2022 = collection2022.map(calculateNDVI).mean().clip(geometry);
+
+// Параметри відображення NDVI на мапі
+var ndviParams = {
+  min: -1,
+  max: 1,
+  palette: ['blue', 'white', 'green']  // Палітра кольорів для NDVI
+};
+
+// Відображення NDVI на мапі
+Map.centerObject(geometry, 10);
+Map.addLayer(ndvi2022, ndviParams, 'NDVI April-Oct 2022');
+
+// Відображення вибраного полігону
+Map.addLayer(geometry, {color: 'red'}, 'Selected Area');
+
+// Функція для створення легенди
+function addLegend() {
+  // Палітра кольорів та відповідні значення
+  var palette = ['blue', 'white', 'green'];
+  var names = ['Low NDVI', 'Medium NDVI', 'High NDVI'];
+
+  // Створюємо панель для легенди
+  var legend = ui.Panel({
+    style: {
+      position: 'bottom-left',
+      padding: '8px 15px'
+    }
+  });
+
+  // Заголовок легенди
+  var legendTitle = ui.Label({
+    value: 'NDVI Legend',
+    style: {
+      fontWeight: 'bold',
+      fontSize: '18px',
+      margin: '0 0 4px 0',
+      padding: '0'
+    }
+  });
+
+  // Додаємо заголовок до панелі
+  legend.add(legendTitle);
+
+  // Функція для створення елементів легенди
+  for (var i = 0; i < 3; i++) {
+    var colorBox = ui.Label({
+      style: {
+        backgroundColor: palette[i],
+        padding: '8px',
+        margin: '0 0 4px 0'
+      }
+    });
+    var description = ui.Label({
+      value: names[i],
+      style: {margin: '0 0 4px 6px'}
+    });
+
+    // Створюємо панель для кожного рядка легенди
+    var legendRow = ui.Panel({
+      widgets: [colorBox, description],
+      layout: ui.Panel.Layout.Flow('horizontal')
+    });
+    legend.add(legendRow);
+  }
+
+  // Додаємо легенду до карти
+  Map.add(legend);
+}
+
+// Викликаємо функцію для додавання легенди
+addLegend();
+
